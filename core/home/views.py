@@ -6,6 +6,10 @@ from .serializers import *
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import AllowAny
 @api_view(['GET'])
 def index(request):
     data = Student.objects.all()
@@ -14,22 +18,30 @@ def index(request):
 
 
 class RegisterUser(APIView):
+    permission_classes = [AllowAny]
     def post (self,request ):
         serializer = UserSerializer(data = request.data)
-        print(request.data)
+        # print(request.data)
         if serializer.is_valid():
-            serializer.save()
-
+            u = serializer.save()
+            u.set_password(request.data['password'])
+            u.save()
             user = User.objects.get(username = serializer.data['username'])
 
-            token_obj , created   = Token.objects.get_or_create(user=user)
-
-            return Response({'status': 200, 'token':str(token_obj),'message': serializer.data})
+            # token_obj , created   = Token.objects.get_or_create(user=user)
+            refresh = RefreshToken.for_user(user=user)
+            return Response({
+                'status': 200, 
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'message': serializer.data})
         else:
             return Response({'status': 400, 'message': serializer.errors})
 
 
 class StudentApis(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get (self, request):
 
